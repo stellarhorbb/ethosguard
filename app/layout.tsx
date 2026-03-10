@@ -19,9 +19,6 @@ export const metadata: Metadata = {
   title: "EthosGuard — On-chain reputation intelligence",
   description:
     "On-chain reputation intelligence for Ethos Network. Signals, not verdicts.",
-  icons: {
-    icon: "/icons/ethosguard-favicon.svg",
-  },
 };
 
 export const viewport = {
