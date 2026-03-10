@@ -208,13 +208,13 @@ function InfoIcon() {
       {show && (
         <div
           className="absolute z-50 shadow-2xl shadow-black/70"
-          style={{ top: 'calc(100% + 10px)', left: '50%', transform: 'translateX(-50%)', width: '340px', borderRadius: '3px', overflow: 'hidden' }}
+          style={{ top: 'calc(100% + 10px)', left: '50%', transform: 'translateX(-50%)', width: 'min(340px, 90vw)', borderRadius: '3px', overflow: 'hidden' }}
           onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current); }}
           onMouseLeave={() => { timerRef.current = setTimeout(() => setShow(false), 200); }}
         >
           <div className="bg-[#3B01D2]" style={{ padding: '16px' }}>
             <p className="text-white/80 leading-relaxed" style={{ fontSize: '14px', fontWeight: 500 }}>
-              EthosGuard analyzes on-chain activity patterns to surface signals that a reputation score alone can&apos;t capture: mutual vouching loops, review spikes, low-activity reviewers, and AI-generated content.
+              EthosGuard analyzes on-chain activity patterns on Ethos Network to surface signals that a reputation score alone can&apos;t capture: mutual vouching loops, review spikes, low-activity reviewers, and AI-generated content.
             </p>
           </div>
         </div>
@@ -232,13 +232,18 @@ export default function Home() {
   const [activeIndex, setActiveIndex] = useState(-1);
   const [period, setPeriod] = useState<Period>('24H');
   const [tickerStats, setTickerStats] = useState<TickerStats>({ profiles: null, verifications: null, reviews: null, vouches: null, ethVouched: null });
+  const [tickerLoading, setTickerLoading] = useState(false);
   const router = useRouter();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Fetch ticker stats
   useEffect(() => {
-    fetchTickerStats(period).then(setTickerStats).catch(() => {});
+    setTickerLoading(true);
+    fetchTickerStats(period)
+      .then(setTickerStats)
+      .catch(() => {})
+      .finally(() => setTickerLoading(false));
   }, [period]);
 
   // Debounced search
@@ -319,12 +324,12 @@ export default function Home() {
           width="72"
           height="84"
           alt="EthosGuard"
-          style={{ filter: 'invert(1)', marginBottom: '20px' }}
+          style={{ marginBottom: '20px' }}
         />
 
         <div className="flex items-center gap-2" style={{ marginBottom: '20px' }}>
-          <p className="text-white text-sm" style={{ letterSpacing: '0.15em' }}>
-            On-chain reputation intelligence
+          <p className="text-white text-sm" style={{ fontFamily: 'var(--font-ibm-plex-mono)', fontWeight: 500, letterSpacing: 'normal' }}>
+            Pattern detection for Ethos Network
           </p>
           <InfoIcon />
         </div>
@@ -363,7 +368,7 @@ export default function Home() {
           {showSuggestions && (
             <div
               className="absolute w-full bg-[#161616] z-50"
-              style={{ top: 'calc(100% + 4px)', left: 0, right: '86px', borderRadius: '3px' }}
+              style={{ top: 'calc(100% + 4px)', left: 0, right: 0, borderRadius: '3px' }}
             >
               {suggestions.map((u, i) => (
                 <div
@@ -398,9 +403,12 @@ export default function Home() {
       {/* Live data ticker section */}
       <div>
         {/* Header row */}
-        <div className="flex items-center justify-between" style={{ padding: '18px 40px 14px' }}>
-          <span className="font-bold uppercase" style={{ fontSize: '14px', letterSpacing: '0.12em', color: '#555555' }}>
+        <div className="flex items-center justify-between" style={{ padding: '14px 20px 10px' }}>
+          <span className="flex items-center gap-2 font-bold uppercase" style={{ fontSize: '14px', letterSpacing: '0.12em', color: tickerLoading ? '#b5f500' : '#ffffff' }}>
             Real-time data
+            {tickerLoading && (
+              <img src="/icons/synced-white.svg" width="14" height="14" alt="" className="spin" style={{ filter: 'brightness(0) saturate(100%) invert(87%) sepia(56%) saturate(800%) hue-rotate(30deg)' }} />
+            )}
           </span>
           <div className="flex items-center gap-1">
             {(['1H', '24H', '7D'] as Period[]).map(p => (
@@ -436,7 +444,7 @@ export default function Home() {
       </div>
 
       {/* Footer */}
-      <footer className="bg-[#3B01D2] flex items-center justify-between" style={{ padding: '22px 40px' }}>
+      <footer className="bg-[#3B01D2] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" style={{ padding: '20px' }}>
         <div className="flex items-center gap-3">
           <img src="/icons/review-black.svg" width="24" height="24" alt="" style={{ filter: 'invert(1) brightness(10)' }} />
           <div className="flex flex-col items-start">

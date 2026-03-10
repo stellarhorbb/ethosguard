@@ -7,7 +7,7 @@ import { fetchProfileData, type ProfileData, type SlopMatch } from "@/app/lib/et
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 
 function LogoIcon() {
-  return <img src="/icons/main-logo.svg" width="42" height="49" alt="" />;
+  return <img src="/icons/main-logo.svg" width="42" height="49" alt="" style={{ filter: 'invert(1)' }} />;
 }
 
 function scoreColor(score: number): string {
@@ -40,24 +40,33 @@ interface CardTooltipData {
   thresholds: Array<{ label: string; text: string }>;
 }
 
-function CardTooltip({ data, align = 'right' }: { data: CardTooltipData; align?: 'left' | 'right' }) {
+function CardModal({ data, title, onClose }: { data: CardTooltipData; title: string; onClose: () => void }) {
   return (
-    <div className="absolute z-50 shadow-2xl shadow-black/70" style={{ top: 'calc(100% + 8px)', ...(align === 'left' ? { left: 0 } : { right: 0 }), width: '300px', borderRadius: '3px', overflow: 'hidden' }}>
-      <div className="bg-[#3B01D2]" style={{ padding: '16px' }}>
-        <div className="flex items-start justify-between" style={{ marginBottom: '10px' }}>
-          <svg width="20" height="20" viewBox="0 0 14 14" fill="none" className="shrink-0">
-            <path d="M6.75 6.08333V9.41667M6.75 12.75C3.43629 12.75 0.75 10.0637 0.75 6.75C0.75 3.43629 3.43629 0.75 6.75 0.75C10.0637 0.75 12.75 3.43629 12.75 6.75C12.75 10.0637 10.0637 12.75 6.75 12.75ZM6.7832 4.08333V4.15L6.7168 4.15013V4.08333H6.7832Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.7)', padding: '20px' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full shadow-2xl"
+        style={{ maxWidth: '360px', borderRadius: '3px', overflow: 'hidden' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="bg-[#3B01D2]" style={{ padding: '16px' }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
+            <span className="text-white font-bold" style={{ fontSize: '16px' }}>{title}</span>
+            <button onClick={onClose} className="text-white/60 hover:text-white transition-colors cursor-pointer" style={{ fontSize: '20px', lineHeight: 1 }}>✕</button>
+          </div>
+          <p className="text-white/80 leading-relaxed" style={{ fontSize: '14px', fontWeight: 500 }}>
+            {data.description}
+          </p>
         </div>
-        <p className="text-white/80 leading-relaxed" style={{ fontSize: '14px', fontWeight: 500 }}>
-          {data.description}
-        </p>
-      </div>
-      <div className="bg-[#b5f500]" style={{ padding: '16px' }}>
-        <div className="font-mono text-black" style={{ fontSize: '13px', fontWeight: 500, lineHeight: '1.4', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {data.thresholds.map((t, i) => (
-            <p key={i}><span className="font-bold">{t.label}</span> ➔ {t.text}</p>
-          ))}
+        <div className="bg-[#b5f500]" style={{ padding: '16px' }}>
+          <div className="font-mono text-black" style={{ fontSize: '13px', fontWeight: 500, lineHeight: '1.4', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {data.thresholds.map((t, i) => (
+              <p key={i}><span className="font-bold">{t.label}</span> ➔ {t.text}</p>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -84,6 +93,7 @@ function HighlightCard({
   children: React.ReactNode;
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textColor = alert ? "text-black" : "text-white";
   return (
@@ -97,8 +107,9 @@ function HighlightCard({
           style={{ top: '21px', right: '16px' }}
           onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current); setShowTooltip(true); }}
           onMouseLeave={() => { timerRef.current = setTimeout(() => setShowTooltip(false), 200); }}
+          onClick={() => { if (!showTooltip) setShowModal(true); }}
         >
-          <span className={`cursor-default transition-colors duration-150 ${alert ? 'text-black hover:text-[#3B01D2]' : 'text-white hover:text-[#b5f500]'}`}>
+          <span className={`cursor-pointer transition-colors duration-150 ${alert ? 'text-black hover:text-[#3B01D2]' : 'text-white hover:text-[#b5f500]'}`}>
             <svg width="18" height="18" viewBox="0 0 14 14" fill="none">
               <path d="M6.75 6.08333V9.41667M6.75 12.75C3.43629 12.75 0.75 10.0637 0.75 6.75C0.75 3.43629 3.43629 0.75 6.75 0.75C10.0637 0.75 12.75 3.43629 12.75 6.75C12.75 10.0637 10.0637 12.75 6.75 12.75ZM6.7832 4.08333V4.15L6.7168 4.15013V4.08333H6.7832Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -107,30 +118,49 @@ function HighlightCard({
             <div
               onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current); }}
               onMouseLeave={() => { timerRef.current = setTimeout(() => setShowTooltip(false), 200); }}
+              className="absolute z-50 shadow-2xl shadow-black/70"
+              style={{ top: 'calc(100% + 8px)', ...(tooltipAlign === 'left' ? { left: 0 } : { right: 0 }), width: '300px', borderRadius: '3px', overflow: 'hidden' }}
             >
-              <CardTooltip data={tooltip} align={tooltipAlign} />
+              <div className="bg-[#3B01D2]" style={{ padding: '16px' }}>
+                <div style={{ marginBottom: '10px' }}>
+                  <svg width="20" height="20" viewBox="0 0 14 14" fill="none">
+                    <path d="M6.75 6.08333V9.41667M6.75 12.75C3.43629 12.75 0.75 10.0637 0.75 6.75C0.75 3.43629 3.43629 0.75 6.75 0.75C10.0637 0.75 12.75 3.43629 12.75 6.75C12.75 10.0637 10.0637 12.75 6.75 12.75ZM6.7832 4.08333V4.15L6.7168 4.15013V4.08333H6.7832Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <p className="text-white/80 leading-relaxed" style={{ fontSize: '14px', fontWeight: 500 }}>{tooltip.description}</p>
+              </div>
+              <div className="bg-[#b5f500]" style={{ padding: '16px' }}>
+                <div className="font-mono text-black" style={{ fontSize: '13px', fontWeight: 500, lineHeight: '1.4', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {tooltip.thresholds.map((t, i) => (
+                    <p key={i}><span className="font-bold">{t.label}</span> ➔ {t.text}</p>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
       )}
+      {showModal && tooltip && (
+        <CardModal data={tooltip} title={title} onClose={() => setShowModal(false)} />
+      )}
       <div>
-        <div className="flex items-center gap-2">
-          <p className={`leading-tight ${textColor}`} style={{ fontSize: "26px", fontWeight: 700, fontFamily: "var(--font-ibm-plex-sans)" }}>
-            {title}
+        <p className={`leading-tight ${textColor}`} style={{ fontSize: "26px", fontWeight: 700, fontFamily: "var(--font-ibm-plex-sans)" }}>
+          {title}
+        </p>
+        <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: '4px' }}>
+          <p className={`leading-relaxed ${textColor}`} style={{ fontSize: "14px", fontWeight: 500 }}>
+            {description}
           </p>
           {alert && <img src="/icons/warning-black.svg" width="18" height="18" alt="" style={{ flexShrink: 0 }} />}
           {!alert && borderline && <img src="/icons/warning-fluo.svg" width="18" height="18" alt="" style={{ flexShrink: 0 }} />}
         </div>
-        <p className={`leading-relaxed ${textColor}`} style={{ fontSize: "14px", marginTop: "4px", fontWeight: 500 }}>
-          {description}
-        </p>
       </div>
-      <div className="flex items-baseline justify-between">
-        <div className={`leading-none ${textColor}`} style={{ fontFamily: 'var(--font-ibm-plex-mono)', fontSize: '15px' }}>
-          {secondary}
-        </div>
-        <div className={`text-right font-bold leading-none ${textColor}`} style={{ fontFamily: "var(--font-ibm-plex-sans)", fontSize: "44px" }}>
+      <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
+        <div className={`font-bold leading-none ${textColor} order-1 sm:order-2`} style={{ fontFamily: "var(--font-ibm-plex-sans)", fontSize: "44px" }}>
           {children}
+        </div>
+        <div className={`leading-none ${textColor} order-2 sm:order-1`} style={{ fontFamily: 'var(--font-ibm-plex-mono)', fontSize: '15px' }}>
+          {secondary}
         </div>
       </div>
     </div>
@@ -213,7 +243,7 @@ function SlopScoreModal({ score, matches }: { score: number; matches: SlopMatch[
   return (
     <div
       className="absolute z-50 shadow-2xl shadow-black/70"
-      style={{ bottom: 'calc(100% + 8px)', right: 0, width: '280px', borderRadius: '3px', overflow: 'hidden' }}
+      style={{ bottom: 'calc(100% + 8px)', right: 0, width: 'min(280px, 85vw)', borderRadius: '3px', overflow: 'hidden' }}
     >
       <div className="bg-[#3B01D2]" style={{ padding: '16px' }}>
         <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
@@ -309,7 +339,7 @@ function EmptyColumn() {
 
 function AISlopsModal() {
   return (
-    <div className="absolute bottom-7 left-1/2 z-50 shadow-2xl shadow-black/60" style={{ width: '360px', transform: 'translateX(-50%)' }}>
+    <div className="absolute bottom-7 left-1/2 z-50 shadow-2xl shadow-black/60" style={{ width: 'min(360px, 90vw)', transform: 'translateX(-50%)' }}>
       {/* Top section — violet */}
       <div className="bg-[#3B01D2]" style={{ padding: '16px' }}>
         <div className="flex items-start justify-between" style={{ marginBottom: '12px' }}>
@@ -471,7 +501,7 @@ function ProgressBar({ loaded }: { loaded: boolean }) {
         style={{ width: `${pct}%`, transition: 'width 0.6s ease' }}
       />
       {/* Content */}
-      <div className="relative flex items-center gap-2 h-full" style={{ padding: '0 40px' }}>
+      <div className="relative flex items-center gap-2 h-full" style={{ padding: '0 clamp(16px, 4vw, 40px)' }}>
         <img
           src="/icons/synced-white.svg"
           width="14"
@@ -521,7 +551,7 @@ export default function ProfilePage() {
   return (
     <div className="flex flex-col min-h-screen bg-[#0a0a0a]">
       {/* ── Sticky header (acid green) ── */}
-      <header className="sticky top-0 z-40 bg-[#b5f500] flex items-center justify-between" style={{ padding: '16px 40px' }}>
+      <header className="sticky top-0 z-40 bg-[#b5f500] flex items-center justify-between" style={{ padding: '12px 20px' }}>
         <a href="/" className="flex items-center gap-3">
           <LogoIcon />
           <div className="flex flex-col">
@@ -535,17 +565,18 @@ export default function ProfilePage() {
         </a>
 
 
-        <div className="flex items-center gap-3">
-          <img src="/icons/review-black.svg" width="28" height="28" alt="" />
+        <div className="flex items-center gap-2">
+          <img src="/icons/review-black.svg" width="18" height="18" alt="" className="hidden sm:block" />
+          <img src="/icons/review-black.svg" width="14" height="14" alt="" className="block sm:hidden" />
           <div className="flex flex-col items-start">
-            <span className="text-black text-xs font-bold uppercase" style={{ letterSpacing: '0.1em' }}>
+            <span className="text-black font-bold uppercase hidden sm:block" style={{ fontSize: '11px', letterSpacing: '0.1em' }}>
               @STELLARHOBBES
             </span>
             <a
               href="https://app.ethos.network/profile/x/stellarhobbes"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs font-bold uppercase link-dark" style={{ letterSpacing: '0.1em' }}
+              className="font-bold uppercase link-dark" style={{ fontSize: '10px', letterSpacing: '0.08em' }}
             >
               LEAVE_REVIEW <span className="link-arrow">➔</span>
             </a>
@@ -557,7 +588,7 @@ export default function ProfilePage() {
       <ProgressBar loaded={!!data || !!error} />
 
       {/* ── Content ── */}
-      <div className="flex flex-col flex-1" style={{ padding: '40px 40px 48px', gap: '24px' }}>
+      <div className="flex flex-col flex-1" style={{ padding: 'clamp(20px, 4vw, 40px) clamp(16px, 4vw, 40px) 48px', gap: '24px' }}>
 
         {error && (
           <div className="flex items-center gap-2 text-[#b5f500] font-bold text-sm" style={{ padding: '20px 0' }}>
@@ -568,10 +599,10 @@ export default function ProfilePage() {
 
         {/* Profile header */}
         <div style={{ marginBottom: '8px' }}>
-          <div className="flex items-end justify-between" style={{ marginBottom: '14px' }}>
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 sm:justify-between" style={{ marginBottom: '14px' }}>
             <h1
               className="text-white font-bold"
-              style={{ fontSize: "clamp(2rem, 5vw, 2.8rem)" }}
+              style={{ fontSize: "clamp(1.6rem, 5vw, 2.8rem)" }}
             >
               {profile?.username || username}
             </h1>
@@ -580,7 +611,7 @@ export default function ProfilePage() {
               target="_blank"
               rel="noopener noreferrer"
               className="font-bold tracking-widest uppercase whitespace-nowrap link-fluo"
-              style={{ fontSize: '15px' }}
+              style={{ fontSize: '13px' }}
             >
               ETHOS PROFIL <span className="link-arrow">➔</span>
             </a>
@@ -588,9 +619,9 @@ export default function ProfilePage() {
 
           <div className="flex flex-wrap items-center justify-between" style={{ gap: '12px' }}>
             {/* Left badges */}
-            <div className="flex flex-wrap items-center" style={{ gap: '20px' }}>
-              <span className="bg-[#222] text-white font-bold flex items-center" style={{ fontSize: '16px', padding: '6px 10px', gap: '6px' }}>
-                <EthosLogoIcon score={profile?.score} size={16} />
+            <div className="flex flex-wrap items-center" style={{ gap: '12px' }}>
+              <span className="bg-[#222] text-white font-bold flex items-center" style={{ fontSize: '14px', padding: '5px 8px', gap: '6px' }}>
+                <EthosLogoIcon score={profile?.score} size={14} />
                 <span
                   style={{ fontFamily: "var(--font-ibm-plex-sans)" }}
                   className="font-bold"
@@ -598,31 +629,31 @@ export default function ProfilePage() {
                   {profile?.score}
                 </span>
               </span>
-              <span className="flex items-center" style={{ fontSize: '16px', gap: '6px', color: profile?.isValidator ? '#b5f500' : '#ffffff' }}>
-                <img src={profile?.isValidator ? "/icons/checkmark-lemon.svg" : "/icons/false-white.svg"} width="16" height="16" alt="" />
+              <span className="flex items-center" style={{ fontSize: '14px', gap: '6px', color: profile?.isValidator ? '#b5f500' : '#ffffff' }}>
+                <img src={profile?.isValidator ? "/icons/checkmark-lemon.svg" : "/icons/false-white.svg"} width="14" height="14" alt="" />
                 Validator
               </span>
-              <span className="flex items-center" style={{ fontSize: '16px', gap: '6px', color: profile?.isHumanVerified ? '#b5f500' : '#ffffff' }}>
-                <img src={profile?.isHumanVerified ? "/icons/checkmark-lemon.svg" : "/icons/false-white.svg"} width="16" height="16" alt="" />
+              <span className="flex items-center" style={{ fontSize: '14px', gap: '6px', color: profile?.isHumanVerified ? '#b5f500' : '#ffffff' }}>
+                <img src={profile?.isHumanVerified ? "/icons/checkmark-lemon.svg" : "/icons/false-white.svg"} width="14" height="14" alt="" />
                 Human Verified
               </span>
-              <span className="text-white flex items-center" style={{ fontSize: '16px', gap: '6px' }}>
-                <img src="/icons/calendar-white.svg" width="16" height="16" alt="" />{" "}
+              <span className="text-white flex items-center" style={{ fontSize: '14px', gap: '6px' }}>
+                <img src="/icons/calendar-white.svg" width="14" height="14" alt="" />{" "}
                 {profile?.joinedDate}
               </span>
             </div>
 
             {/* Right stats */}
             <div className="flex items-center gap-4">
-              <span className="text-white flex items-center" style={{ fontSize: '16px', gap: '6px' }}>
-                <img src="/icons/review-white.svg" width="16" height="16" alt="" />
+              <span className="text-white flex items-center" style={{ fontSize: '14px', gap: '6px' }}>
+                <img src="/icons/review-white.svg" width="14" height="14" alt="" />
                 <span style={{ fontFamily: "var(--font-ibm-plex-sans)" }} className="font-bold">{profile?.reviewCount}</span>
                 {" "}|{" "}
                 <span style={{ fontFamily: "var(--font-ibm-plex-sans)" }} className="font-bold">{profile?.positivePercent}%</span>
                 {" "}Positive
               </span>
-              <span className="text-white flex items-center" style={{ fontSize: '16px', gap: '6px' }}>
-                <img src="/icons/vouch-white.svg" width="16" height="16" alt="" />
+              <span className="text-white flex items-center" style={{ fontSize: '14px', gap: '6px' }}>
+                <img src="/icons/vouch-white.svg" width="14" height="14" alt="" />
                 <span style={{ fontFamily: "var(--font-ibm-plex-sans)" }} className="font-bold">{profile?.ethVouched}</span>
               </span>
             </div>
@@ -685,7 +716,7 @@ export default function ProfilePage() {
           >
             {(highlights?.cleanupActivity?.reviews ?? 0) > 0 ||
             (highlights?.cleanupActivity?.vouches ?? 0) > 0 ? (
-              <div className="flex items-end gap-2 justify-end">
+              <div className="flex items-end gap-2">
                 <span className="flex items-end gap-1">
                   <img src={highlights?.cleanupActivity?.alert ? "/icons/review-black.svg" : "/icons/review-white.svg"} width="28" height="28" alt="" style={{ marginBottom: '7px' }} />
                   <span>{highlights?.cleanupActivity?.reviews}</span>
@@ -720,7 +751,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ── 3-column data grid ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 items-start" style={{ paddingTop: '32px', gap: '40px' }}>
+        <div className="grid grid-cols-1 md:grid-cols-3 items-start" style={{ paddingTop: '24px', gap: 'clamp(24px, 4vw, 40px)' }}>
           {/* Col 1: Mutual Reviews */}
           <div>
             <DataColumn
