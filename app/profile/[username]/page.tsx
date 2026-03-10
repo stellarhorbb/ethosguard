@@ -7,7 +7,7 @@ import { fetchProfileData, type ProfileData, type SlopMatch } from "@/app/lib/et
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 
 function LogoIcon() {
-  return <img src="/icons/main-logo.svg" width="42" height="49" alt="" style={{ filter: 'invert(1)' }} />;
+  return <img src="/icons/main-logo.svg" width="42" height="49" alt="" style={{ filter: 'brightness(0)' }} />;
 }
 
 function scoreColor(score: number): string {
@@ -144,15 +144,19 @@ function HighlightCard({
         <CardModal data={tooltip} title={title} onClose={() => setShowModal(false)} />
       )}
       <div>
-        <p className={`leading-tight ${textColor}`} style={{ fontSize: "26px", fontWeight: 700, fontFamily: "var(--font-ibm-plex-sans)" }}>
-          {title}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className={`leading-tight ${textColor}`} style={{ fontSize: "26px", fontWeight: 700, fontFamily: "var(--font-ibm-plex-sans)" }}>
+            {title}
+          </p>
+          {alert && <img src="/icons/warning-black.svg" width="18" height="18" alt="" className="hidden sm:block" style={{ flexShrink: 0 }} />}
+          {!alert && borderline && <img src="/icons/warning-fluo.svg" width="18" height="18" alt="" className="hidden sm:block" style={{ flexShrink: 0 }} />}
+        </div>
         <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: '4px' }}>
           <p className={`leading-relaxed ${textColor}`} style={{ fontSize: "14px", fontWeight: 500 }}>
             {description}
           </p>
-          {alert && <img src="/icons/warning-black.svg" width="18" height="18" alt="" style={{ flexShrink: 0 }} />}
-          {!alert && borderline && <img src="/icons/warning-fluo.svg" width="18" height="18" alt="" style={{ flexShrink: 0 }} />}
+          {alert && <img src="/icons/warning-black.svg" width="18" height="18" alt="" className="block sm:hidden" style={{ flexShrink: 0 }} />}
+          {!alert && borderline && <img src="/icons/warning-fluo.svg" width="18" height="18" alt="" className="block sm:hidden" style={{ flexShrink: 0 }} />}
         </div>
       </div>
       <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
@@ -565,18 +569,17 @@ export default function ProfilePage() {
         </a>
 
 
-        <div className="flex items-center gap-2">
-          <img src="/icons/review-black.svg" width="18" height="18" alt="" className="hidden sm:block" />
-          <img src="/icons/review-black.svg" width="14" height="14" alt="" className="block sm:hidden" />
+        <div className="hidden sm:flex items-center gap-2">
+          <img src="/icons/review-black.svg" width="18" height="18" alt="" />
           <div className="flex flex-col items-start">
-            <span className="text-black font-bold uppercase hidden sm:block" style={{ fontSize: '11px', letterSpacing: '0.1em' }}>
+            <span className="text-black font-bold uppercase" style={{ fontSize: '14px', letterSpacing: '0.1em' }}>
               @STELLARHOBBES
             </span>
             <a
               href="https://app.ethos.network/profile/x/stellarhobbes"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-bold uppercase link-dark" style={{ fontSize: '10px', letterSpacing: '0.08em' }}
+              className="font-bold uppercase link-dark" style={{ fontSize: '14px', letterSpacing: '0.08em' }}
             >
               LEAVE_REVIEW <span className="link-arrow">➔</span>
             </a>

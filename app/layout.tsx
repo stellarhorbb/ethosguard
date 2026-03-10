@@ -21,6 +21,11 @@ export const metadata: Metadata = {
     "On-chain reputation intelligence for Ethos Network. Signals, not verdicts.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: {
