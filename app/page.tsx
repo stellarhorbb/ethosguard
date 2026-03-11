@@ -233,6 +233,7 @@ export default function Home() {
   const [period, setPeriod] = useState<Period>('24H');
   const [tickerStats, setTickerStats] = useState<TickerStats>({ profiles: null, verifications: null, reviews: null, vouches: null, ethVouched: null });
   const [tickerLoading, setTickerLoading] = useState(false);
+  const [randomState, setRandomState] = useState<'idle' | 'loading' | 'error'>('idle');
   const router = useRouter();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -289,6 +290,31 @@ export default function Home() {
   function navigate(username: string) {
     setShowSuggestions(false);
     router.push(`/profile/${encodeURIComponent(username)}`);
+  }
+
+  async function handleRandom() {
+    setRandomState('loading');
+    const headers = { 'Content-Type': 'application/json', 'X-Ethos-Client': 'ethosguard' };
+    try {
+      for (const offset of [0, 50]) {
+        const res = await fetch(`${BASE}/activities/feed`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ filter: ['review'], dayRange: 7, limit: 50, offset }),
+        });
+        const data = await res.json();
+        const values: Array<{ author?: { username?: string } }> = data.values ?? [];
+        const usernames = values.map(v => v.author?.username).filter(Boolean) as string[];
+        if (usernames.length > 0) {
+          const username = usernames[Math.floor(Math.random() * usernames.length)];
+          setRandomState('idle');
+          navigate(username);
+          return;
+        }
+      }
+      setRandomState('error');
+    } catch {
+      setRandomState('error');
+    }
   }
 
   function handleSearch(e: React.FormEvent) {
@@ -397,6 +423,48 @@ export default function Home() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Random Profile button */}
+        <div className="w-full max-w-xl flex justify-center" style={{ marginTop: '12px' }}>
+          <button
+            onClick={randomState === 'loading' ? undefined : randomState === 'error' ? () => setRandomState('idle') : handleRandom}
+            className="cursor-pointer"
+            style={{
+              fontFamily: 'var(--font-ibm-plex-mono)',
+              fontSize: '14px',
+              fontWeight: 500,
+              textTransform: 'none',
+              letterSpacing: 'normal',
+              padding: '14px 20px',
+              borderRadius: '3px',
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              color: '#b5f500',
+              transition: 'color 150ms ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#ffffff'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#b5f500'; }}
+          >
+            {randomState === 'loading' ? (
+              <>
+                <img src="/icons/synced-white.svg" width="14" height="14" alt="" className="spin" style={{ filter: 'brightness(0) saturate(100%) invert(87%) sepia(56%) saturate(800%) hue-rotate(30deg)' }} />
+                Scanning...
+              </>
+            ) : randomState === 'error' ? (
+              'Try again'
+            ) : (
+              <>
+                <img src="/icons/random.svg" width="13" height="13" alt="" />
+                Random Ethos profile
+              </>
+            )}
+          </button>
         </div>
       </main>
 

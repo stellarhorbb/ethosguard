@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { fetchProfileData, type ProfileData, type SlopMatch, type TickerRawData } from "@/app/lib/ethos";
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
@@ -513,7 +513,7 @@ function ProgressBar({ loaded }: { loaded: boolean }) {
           alt=""
           className={state === "loading" ? "spin" : ""}
         />
-        <span className="text-white text-xs font-bold tracking-wider">
+        <span className="text-white uppercase" style={{ fontFamily: 'var(--font-ibm-plex-mono)', fontSize: '14px', fontWeight: 500 }}>
           {state === "loading" ? `${pct}%` : "Synced"}
         </span>
       </div>
@@ -691,11 +691,15 @@ function TickerBanner({ rawData }: { rawData: TickerRawData | null }) {
 
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
+const BASE = 'https://api.ethos.network/api/v2';
+
 export default function ProfilePage() {
   const params = useParams();
+  const router = useRouter();
   const username = decodeURIComponent(params.username as string);
 
   const [data, setData] = useState<ProfileData | null>(null);
+  const [randomState, setRandomState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [showAllVouches, setShowAllVouches] = useState(false);
@@ -708,6 +712,31 @@ export default function ProfilePage() {
       .then(setData)
       .catch(e => setError(e.message ?? 'Failed to load profile'));
   }, [username]);
+
+  async function handleRandom() {
+    setRandomState('loading');
+    const headers = { 'Content-Type': 'application/json', 'X-Ethos-Client': 'ethosguard' };
+    try {
+      for (const offset of [0, 50]) {
+        const res = await fetch(`${BASE}/activities/feed`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ filter: ['review'], dayRange: 7, limit: 50, offset }),
+        });
+        const d = await res.json();
+        const values: Array<{ author?: { username?: string } }> = d.values ?? [];
+        const usernames = values.map(v => v.author?.username).filter(Boolean) as string[];
+        if (usernames.length > 0) {
+          const picked = usernames[Math.floor(Math.random() * usernames.length)];
+          setRandomState('idle');
+          router.push(`/profile/${encodeURIComponent(picked)}`);
+          return;
+        }
+      }
+      setRandomState('error');
+    } catch {
+      setRandomState('error');
+    }
+  }
 
   const profile = data?.profile;
   const highlights = data?.highlights;
@@ -738,22 +767,37 @@ export default function ProfilePage() {
         </a>
 
 
-        <div className="hidden sm:flex items-center gap-2">
-          <img src="/icons/review-black.svg" width="18" height="18" alt="" />
-          <div className="flex flex-col items-start">
-            <span className="text-black font-bold uppercase" style={{ fontSize: '14px', letterSpacing: '0.1em' }}>
-              @STELLARHOBBES
-            </span>
-            <a
-              href="https://app.ethos.network/profile/x/stellarhobbes"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-bold uppercase link-dark" style={{ fontSize: '14px', letterSpacing: '0.08em' }}
-            >
-              LEAVE_REVIEW <span className="link-arrow">➔</span>
-            </a>
-          </div>
-        </div>
+        <button
+          onClick={randomState === 'loading' ? undefined : randomState === 'error' ? () => setRandomState('idle') : handleRandom}
+          className="hidden sm:flex cursor-pointer items-center"
+          style={{
+            fontFamily: 'var(--font-ibm-plex-mono)',
+            fontSize: '14px',
+            fontWeight: 500,
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            color: '#000000',
+            transition: 'color 150ms ease',
+            gap: '8px',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#3B01D2'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#000000'; }}
+        >
+          {randomState === 'loading' ? (
+            <>
+              <img src="/icons/synced-white.svg" width="14" height="14" alt="" className="spin" style={{ filter: 'brightness(0)' }} />
+              Scanning...
+            </>
+          ) : randomState === 'error' ? (
+            'Try again'
+          ) : (
+            <>
+              <img src="/icons/random.svg" width="13" height="13" alt="" style={{ filter: 'brightness(0)' }} />
+              Random profile
+            </>
+          )}
+        </button>
       </header>
 
       {/* ── Progress bar ── */}
