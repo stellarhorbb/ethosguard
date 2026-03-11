@@ -21,6 +21,8 @@ interface EthosUser {
   humanVerificationStatus: 'REQUESTED' | 'VERIFIED' | 'REVOKED' | null;
   validatorNftCount: number;
   stats: UserStats;
+  xpStreakDays?: number;
+  influenceFactorPercentile?: number;
 }
 
 interface EthosProfile {
@@ -52,7 +54,9 @@ interface Activity {
   author: ActivityActor;
   subject: ActivityActor;
   authorUser?: FullUser;
+  votes?: { upvotes?: number; downvotes?: number };
   data?: {
+    id?: number;
     score?: string;     // "positive" | "negative" | "neutral" (lowercase)
     comment?: string;   // title / short text
     metadata?: string;  // JSON string: { description: string }
@@ -95,6 +99,16 @@ export interface ProfileData {
   mutualReviews: Array<{ username: string; hours: number; ethGiven: string; ethReceived: string; link: string; scoreGiven: string; scoreReceived: string }>;
   mutualVouches: Array<{ username: string; hours: number; ethGiven: string; ethReceived: string; link: string }>;
   aiSlops: Array<{ username: string; score: number; preview: string; link: string; matches: SlopMatch[] }>;
+  tickerRawData: TickerRawData;
+}
+
+export interface TickerRawData {
+  vouchesGivenRaw: Array<{ timestamp: number; balanceEth: number; link: string }>;
+  vouchesReceivedTimestamps: number[];
+  reviewsGivenRaw: Array<{ timestamp: number; votes: number; link: string }>;
+  timelineEntries: Array<{ timestamp: number; xpEarned: number }>;
+  scoreHistory: Array<{ timestamp: number; score: number }>;
+  xpStreakDays: number | null;
 }
 
 // ── API helpers ────────────────────────────────────────────────────────────────
@@ -312,6 +326,52 @@ export function scoreReview(title: string, body: string): { score: number; match
   return { score: Math.min(100, Math.max(0, raw)), matches };
 }
 
+// ── Ticker helpers ─────────────────────────────────────────────────────────────
+
+async function fetchScoreHistory(
+  pid: number,
+): Promise<Array<{ timestamp: number; score: number }>> {
+  try {
+    const raw = await get<any[]>(`/score/history?userkey=profileId:${pid}`);
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((e: any) => ({
+        timestamp: e.date ? Math.floor(new Date(e.date).getTime() / 1000) : 0,
+        score: Number(e.score ?? 0),
+      }))
+      .filter(e => e.timestamp > 0 && e.score > 0);
+  } catch {
+    return [];
+  }
+}
+
+async function fetchXpTimeline(
+  pid: number,
+  since: string,
+): Promise<Array<{ timestamp: number; xpEarned: number; cumulativeXp: number }>> {
+  try {
+    let seasonId = 2;
+    try {
+      const seasons = await get<any>('/xp/seasons');
+      const id = seasons?.currentSeason?.id;
+      if (typeof id === 'number') seasonId = id;
+    } catch { /* use default */ }
+    // Response is a raw array: [{ time, xp, cumulativeXp }]
+    const raw = await get<any[]>(
+      `/xp/user/profileId:${pid}/season/${seasonId}/timeline?granularity=day&since=${since}`
+    );
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((e: any) => ({
+        timestamp: e.time ? Math.floor(new Date(e.time).getTime() / 1000) : 0,
+        xpEarned: Number(e.xp ?? 0),
+      }))
+      .filter(e => e.timestamp > 0);
+  } catch {
+    return [];
+  }
+}
+
 // ── Main fetch ─────────────────────────────────────────────────────────────────
 
 export async function fetchProfileData(username: string): Promise<ProfileData> {
@@ -319,15 +379,18 @@ export async function fetchProfileData(username: string): Promise<ProfileData> {
   if (!user.profileId) throw new Error('No Ethos profile found for this user');
 
   const pid = user.profileId;
+  const since30d = new Date(Date.now() - 30 * 86400 * 1000).toISOString().split('T')[0];
 
-  // Parallel: profile, active reviews, active vouches
-  const [profileRes, reviewsReceived, reviewsGiven, vouchesReceived, vouchesGiven] =
+  // Parallel: profile, active reviews, active vouches, ticker data
+  const [profileRes, reviewsReceived, reviewsGiven, vouchesReceived, vouchesGiven, timelineEntries, scoreHistory] =
     await Promise.all([
       post<{ values: EthosProfile[] }>('/profiles', { ids: [pid], limit: 1 }),
       fetchReviews(pid, 'received', false),
       fetchReviews(pid, 'given', false),
       fetchVouches(pid, 'received', false),
       fetchVouches(pid, 'given', false),
+      fetchXpTimeline(pid, since30d),
+      fetchScoreHistory(pid),
     ]);
 
   const ethosProfile = profileRes.values[0];
@@ -507,6 +570,23 @@ export async function fetchProfileData(username: string): Promise<ProfileData> {
 
   // ── Result ────────────────────────────────────────────────────────────────
 
+  const tickerRawData: TickerRawData = {
+    vouchesGivenRaw: vouchesGiven.map(v => ({
+      timestamp: v.activityCheckpoints.vouchedAt,
+      balanceEth: weiToEth(v.balance),
+      link: `https://app.ethos.network/activity/vouch/${v.id}`,
+    })),
+    vouchesReceivedTimestamps: vouchesReceived.map(v => v.activityCheckpoints.vouchedAt),
+    reviewsGivenRaw: reviewsGiven.map(r => ({
+      timestamp: r.timestamp,
+      votes: r.votes?.upvotes ?? 0,
+      link: r.link ?? '',
+    })),
+    timelineEntries,
+    scoreHistory,
+    xpStreakDays: user.xpStreakDays ?? null,
+  };
+
   return {
     profile: {
       username: user.username ?? username,
@@ -527,5 +607,6 @@ export async function fetchProfileData(username: string): Promise<ProfileData> {
     mutualReviews,
     mutualVouches,
     aiSlops,
+    tickerRawData,
   };
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { fetchProfileData, type ProfileData, type SlopMatch } from "@/app/lib/ethos";
+import { fetchProfileData, type ProfileData, type SlopMatch, type TickerRawData } from "@/app/lib/ethos";
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 
@@ -163,7 +163,7 @@ function HighlightCard({
         <div className={`font-bold leading-none ${textColor} order-1 sm:order-2`} style={{ fontFamily: "var(--font-ibm-plex-sans)", fontSize: "44px" }}>
           {children}
         </div>
-        <div className={`leading-none ${textColor} order-2 sm:order-1`} style={{ fontFamily: 'var(--font-ibm-plex-mono)', fontSize: '15px' }}>
+        <div className={`leading-none ${textColor} order-2 sm:order-1`} style={{ fontFamily: 'var(--font-ibm-plex-mono)', fontSize: '14px', fontWeight: 500 }}>
           {secondary}
         </div>
       </div>
@@ -178,7 +178,7 @@ function ScoreBadge({ score, label }: { score: string; label: string }) {
   return (
     <span className="flex items-center gap-1">
       <img src={icon} width="16" height="16" alt={score} style={{ display: 'inline-block', verticalAlign: 'middle' }} />
-      <span className="text-white text-xs uppercase">{label}</span>
+      <span className="text-white uppercase" style={{ fontSize: '14px' }}>{label}</span>
     </span>
   );
 }
@@ -207,14 +207,14 @@ function ReviewCard({
     >
       <div className="flex items-center justify-between">
         <a href={`/profile/${username}`} onClick={e => e.stopPropagation()} className="text-[#b5f500] hover:text-white transition-colors duration-150 text-sm font-bold">@{username}</a>
-        <span className="text-white text-xs flex items-center gap-1">
+        <span className="text-white flex items-center gap-1" style={{ fontSize: '14px' }}>
           {hours}h
           <img src="/icons/timer-white.svg" width="16" height="16" alt="" style={{ display: 'inline-block', verticalAlign: 'middle' }} />
         </span>
       </div>
       <div className="flex items-center gap-2">
         <ScoreBadge score={scoreGiven} label="gave" />
-        <span className="text-white text-xs">/</span>
+        <span className="text-white" style={{ fontSize: '14px' }}>/</span>
         <ScoreBadge score={scoreReceived} label="received" />
       </div>
     </div>
@@ -229,12 +229,12 @@ function VouchCard({ username, hours, ethGiven, ethReceived, link }: { username:
     >
       <div className="flex items-center justify-between">
         <a href={`/profile/${username}`} onClick={e => e.stopPropagation()} className="text-[#b5f500] hover:text-white transition-colors duration-150 text-sm font-bold">@{username}</a>
-        <span className="text-white text-xs flex items-center gap-1">
+        <span className="text-white flex items-center gap-1" style={{ fontSize: '14px' }}>
           {hours}h
           <img src="/icons/timer-white.svg" width="16" height="16" alt="" style={{ display: 'inline-block', verticalAlign: 'middle' }} />
         </span>
       </div>
-      <p className="text-white text-xs">
+      <p className="text-white" style={{ fontSize: '14px' }}>
         {ethGiven} ETH given / {ethReceived} ETH received
       </p>
     </div>
@@ -324,7 +324,7 @@ function SlopCard({
           )}
         </div>
       </div>
-      <p className="text-white text-xs leading-relaxed line-clamp-2" style={{ marginTop: 'auto', paddingTop: '8px' }}>
+      <p className="text-white leading-relaxed line-clamp-2" style={{ fontSize: '14px', marginTop: 'auto', paddingTop: '8px' }}>
         {preview}
       </p>
     </div>
@@ -521,6 +521,174 @@ function ProgressBar({ loaded }: { loaded: boolean }) {
   );
 }
 
+// ─── Ticker Banner ─────────────────────────────────────────────────────────────
+
+function TickerBanner({ rawData }: { rawData: TickerRawData | null }) {
+  const [period, setPeriod] = useState<'24H' | '7D' | '30D'>('7D');
+  const [paused, setPaused] = useState(false);
+
+  const items = useMemo(() => {
+    const now = Date.now() / 1000;
+    const cutoffs: Record<string, number> = {
+      '24H': now - 86400,
+      '7D': now - 7 * 86400,
+      '30D': now - 30 * 86400,
+    };
+    const cutoff = cutoffs[period];
+
+    // SCORE EVOLUTION — delta between oldest and newest score entry in period
+    let scoreEvolution = '—';
+    if (rawData && rawData.scoreHistory.length > 0) {
+      const entries = rawData.scoreHistory.filter(e => e.timestamp >= cutoff);
+      if (entries.length >= 2) {
+        const delta = entries[entries.length - 1].score - entries[0].score;
+        if (delta !== 0) scoreEvolution = delta > 0 ? `+${delta}` : String(delta);
+      }
+    }
+
+    // MOST UPVOTED REVIEW (given by this profile)
+    let mostUpvotedReview = '—';
+    let mostUpvotedLink = '';
+    if (rawData) {
+      const periodReviews = rawData.reviewsGivenRaw.filter(r => r.timestamp >= cutoff && r.votes > 0);
+      if (periodReviews.length > 0) {
+        const best = periodReviews.reduce((m, r) => r.votes > m.votes ? r : m);
+        mostUpvotedReview = String(best.votes);
+        mostUpvotedLink = best.link;
+      }
+    }
+
+    // BIGGEST VOUCH
+    let biggestVouch = '—';
+    let biggestVouchLink = '';
+    if (rawData) {
+      const periodVouches = rawData.vouchesGivenRaw.filter(v => v.timestamp >= cutoff && v.balanceEth > 0);
+      if (periodVouches.length > 0) {
+        const best = periodVouches.reduce((m, v) => v.balanceEth > m.balanceEth ? v : m);
+        biggestVouch = best.balanceEth.toFixed(3);
+        biggestVouchLink = best.link;
+      }
+    }
+
+    // NEW VOUCHERS
+    const newVouchersCount = rawData
+      ? rawData.vouchesReceivedTimestamps.filter(ts => ts >= cutoff).length
+      : 0;
+    const newVouchers = newVouchersCount > 0 ? String(newVouchersCount) : '—';
+
+    // XP EARNED — sum of positive daily xp
+    let xpEarned = '—';
+    if (rawData && rawData.timelineEntries.length > 0) {
+      const periodEntries = rawData.timelineEntries.filter(e => e.timestamp >= cutoff);
+      const total = periodEntries.reduce((s, e) => s + Math.max(0, e.xpEarned), 0);
+      if (total > 0) xpEarned = total.toLocaleString('en-US');
+    }
+
+    // CONTRIBUTION STREAK (static)
+    const streak = rawData?.xpStreakDays ? `${rawData.xpStreakDays}D` : '—';
+
+    return [
+      { label: 'SCORE EVOLUTION', icon: 'evolution-lemon.svg', value: scoreEvolution, href: '' },
+      { label: 'MOST UPVOTED REVIEW', icon: 'upvote-emon.svg', value: mostUpvotedReview, href: mostUpvotedLink },
+      { label: 'BIGGEST VOUCH', icon: 'ethereum-lemon.svg', value: biggestVouch, href: biggestVouchLink },
+      { label: 'NEW VOUCHERS', icon: 'vouch-lemon.svg', value: newVouchers, href: '' },
+      { label: 'XP EARNED', icon: 'xp-lemon.svg', value: xpEarned, href: '' },
+      { label: 'CONTRIBUTION STREAK', icon: 'streak-lemon.svg', value: streak, href: '' },
+    ];
+  }, [rawData, period]);
+
+  const tickerItems = [...items, ...items, ...items, ...items];
+
+  return (
+    <div className="flex items-stretch" style={{ gap: '6px', height: '48px' }}>
+      {/* Scrolling ticker */}
+      <div
+        className="flex items-center px-4 sm:px-7"
+        style={{ flex: 1, overflow: 'hidden', minWidth: 0, background: '#3B01D2', borderRadius: '3px' }}
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
+        <div
+          className="ticker-track inline-flex items-center h-full"
+          style={{ whiteSpace: 'nowrap', animationPlayState: paused ? 'paused' : 'running' }}
+        >
+          {tickerItems.map((item, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center"
+              style={{ gap: '6px', padding: '0 12px', flexShrink: 0 }}
+            >
+              <span className="hidden sm:inline" style={{ color: '#ffffff', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-ibm-plex-mono)' }}>
+                {item.label}
+              </span>
+              <img
+                src={`/icons/${item.icon}`}
+                width={item.icon === 'ethereum-lemon.svg' ? 9 : item.icon === 'streak-lemon.svg' ? 14 : 16}
+                height={item.icon === 'ethereum-lemon.svg' ? 14 : item.icon === 'streak-lemon.svg' ? 14 : 16}
+                alt=""
+                className="sm:hidden"
+                style={{ filter: 'brightness(0) invert(1)' }}
+              />
+              <img
+                src={`/icons/${item.icon}`}
+                width={item.icon === 'ethereum-lemon.svg' ? 11 : item.icon === 'streak-lemon.svg' ? 16 : 20}
+                height={item.icon === 'ethereum-lemon.svg' ? 18 : item.icon === 'streak-lemon.svg' ? 16 : 20}
+                alt=""
+                className="hidden sm:inline"
+                style={{ filter: 'brightness(0) invert(1)' }}
+              />
+              {item.href ? (
+                <a
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  style={{ color: '#ffffff', fontWeight: 700, fontFamily: 'var(--font-ibm-plex-sans)', textDecoration: 'none', fontSize: '16px' }}
+                  className="hover:underline"
+                >
+                  {item.value}
+                </a>
+              ) : (
+                <span style={{ color: '#ffffff', fontWeight: 700, fontFamily: 'var(--font-ibm-plex-sans)', fontSize: '16px' }}>
+                  {item.value}
+                </span>
+              )}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Period toggle */}
+      <div
+        className="flex items-center"
+        style={{ flexShrink: 0, background: '#3B01D2', borderRadius: '3px', padding: '0 8px', gap: '2px' }}
+      >
+        {(['24H', '7D', '30D'] as const).map(p => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            style={{
+              background: period === p ? '#ffffff' : 'transparent',
+              color: period === p ? '#3B01D2' : '#ffffff',
+              border: 'none',
+              padding: '4px 7px',
+              fontSize: '11px',
+              fontWeight: 700,
+              fontFamily: 'var(--font-ibm-plex-mono)',
+              letterSpacing: '0.05em',
+              cursor: 'pointer',
+              borderRadius: '2px',
+              lineHeight: 1.5,
+            }}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
@@ -546,6 +714,7 @@ export default function ProfilePage() {
   const mutualReviews = data?.mutualReviews ?? [];
   const mutualVouches = data?.mutualVouches ?? [];
   const aiSlops = data?.aiSlops ?? [];
+  const tickerRawData = data?.tickerRawData ?? null;
 
   const displayedReviews = showAllReviews ? mutualReviews : mutualReviews.slice(0, REVIEWS_LIMIT);
   const displayedVouches = showAllVouches ? mutualVouches : mutualVouches.slice(0, VOUCHES_LIMIT);
@@ -661,6 +830,11 @@ export default function ProfilePage() {
               </span>
             </div>
           </div>
+        </div>
+
+        {/* ── Ticker banner ── */}
+        <div className="mt-[-6px] sm:mt-[-12px]">
+          <TickerBanner rawData={tickerRawData} />
         </div>
 
         {/* ── 4 highlight cards ── */}
