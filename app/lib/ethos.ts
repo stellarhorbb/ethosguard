@@ -82,6 +82,7 @@ export interface SlopMatch { label: string; points: number }
 export interface ProfileData {
   profile: {
     username: string;
+    displayName: string;
     score: number;
     isValidator: boolean;
     isHumanVerified: boolean;
@@ -590,6 +591,7 @@ export async function fetchProfileData(username: string): Promise<ProfileData> {
   return {
     profile: {
       username: user.username ?? username,
+      displayName: user.displayName || user.username || username,
       score: user.score,
       isValidator: (user.validatorNftCount ?? 0) > 0,
       isHumanVerified: user.humanVerificationStatus === 'VERIFIED',

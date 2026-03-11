@@ -10,6 +10,25 @@ function LogoIcon() {
   return <img src="/icons/main-logo.svg" width="42" height="49" alt="" style={{ filter: 'brightness(0)' }} />;
 }
 
+function EthosLinkButton({ href }: { href: string }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ display: 'inline-flex', lineHeight: 0, borderRadius: '3px', flexShrink: 0, position: 'relative', top: '8px' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <svg width="28" height="28" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="21" height="21" rx="3" fill={hovered ? '#ffffff' : '#BADF1E'} style={{ transition: 'fill 150ms ease' }} />
+        <path d="M4.66663 11.8213H10.401C10.2994 12.6574 10.094 13.4599 9.79846 14.2158H4.66663V11.8213ZM16.3326 16.6104H8.44592C9.0019 15.8882 9.45928 15.0832 9.79846 14.2158H16.3326V16.6104ZM16.3326 11.8213H10.401C10.4491 11.4249 10.4772 11.0211 10.4772 10.6113C10.4772 10.2103 10.4501 9.81498 10.4039 9.42676H16.3326V11.8213ZM4.66663 7.03125H9.80823C10.1016 7.7877 10.3046 8.59051 10.4039 9.42676H4.66663V7.03125ZM16.3326 7.03125H9.80823C9.47197 6.16436 9.01811 5.35937 8.46545 4.63672H16.3326V7.03125Z" fill="black" />
+      </svg>
+    </a>
+  );
+}
+
 function scoreColor(score: number): string {
   if (score >= 2600) return '#7F5DB4'; // Renowned
   if (score >= 2400) return '#896CAA'; // Revered
@@ -206,7 +225,9 @@ function ReviewCard({
       className="bg-[#161616] cursor-pointer border border-transparent hover:border-[#b5f500] transition-colors duration-100 flex flex-col justify-between" style={{ padding: '12px 14px', borderRadius: '3px', minHeight: '74px' }}
     >
       <div className="flex items-center justify-between">
-        <a href={`/profile/${username}`} onClick={e => e.stopPropagation()} className="text-[#b5f500] hover:text-white transition-colors duration-150 text-sm font-bold">@{username}</a>
+        <ProfileHoverCard username={username}>
+          <a href={`/profile/${username}`} onClick={e => e.stopPropagation()} className="text-[#b5f500] hover:text-white transition-colors duration-150 text-sm font-bold">@{username}</a>
+        </ProfileHoverCard>
         <span className="text-white flex items-center gap-1" style={{ fontSize: '14px' }}>
           {hours}h
           <img src="/icons/timer-white.svg" width="16" height="16" alt="" style={{ display: 'inline-block', verticalAlign: 'middle' }} />
@@ -228,7 +249,9 @@ function VouchCard({ username, hours, ethGiven, ethReceived, link }: { username:
       className="bg-[#161616] cursor-pointer border border-transparent hover:border-[#b5f500] transition-colors duration-100 flex flex-col justify-between" style={{ padding: '12px 14px', borderRadius: '3px', minHeight: '74px' }}
     >
       <div className="flex items-center justify-between">
-        <a href={`/profile/${username}`} onClick={e => e.stopPropagation()} className="text-[#b5f500] hover:text-white transition-colors duration-150 text-sm font-bold">@{username}</a>
+        <ProfileHoverCard username={username}>
+          <a href={`/profile/${username}`} onClick={e => e.stopPropagation()} className="text-[#b5f500] hover:text-white transition-colors duration-150 text-sm font-bold">@{username}</a>
+        </ProfileHoverCard>
         <span className="text-white flex items-center gap-1" style={{ fontSize: '14px' }}>
           {hours}h
           <img src="/icons/timer-white.svg" width="16" height="16" alt="" style={{ display: 'inline-block', verticalAlign: 'middle' }} />
@@ -295,13 +318,15 @@ function SlopCard({
       className="flex flex-col justify-between bg-[#161616] cursor-pointer border border-transparent hover:border-[#b5f500] transition-colors duration-100" style={{ padding: '12px 14px', borderRadius: '3px', minHeight: '125px' }}
     >
       <div className="flex items-baseline justify-between">
-        <a
-          href={`/profile/${username}`}
-          onClick={e => e.stopPropagation()}
-          className="text-[#b5f500] hover:text-white transition-colors duration-150 text-sm font-bold"
-        >
-          @{username}
-        </a>
+        <ProfileHoverCard username={username}>
+          <a
+            href={`/profile/${username}`}
+            onClick={e => e.stopPropagation()}
+            className="text-[#b5f500] hover:text-white transition-colors duration-150 text-sm font-bold"
+          >
+            @{username}
+          </a>
+        </ProfileHoverCard>
         <div
           className="relative"
           onClick={e => e.stopPropagation()}
@@ -328,6 +353,90 @@ function SlopCard({
         {preview}
       </p>
     </div>
+  );
+}
+
+// ─── Profile hover card ────────────────────────────────────────────────────────
+
+interface MiniProfile {
+  displayName: string;
+  score: number;
+  isValidator: boolean;
+  isHumanVerified: boolean;
+}
+
+async function fetchMiniProfile(username: string): Promise<MiniProfile | null> {
+  try {
+    const res = await fetch(`https://api.ethos.network/api/v2/user/by/x/${encodeURIComponent(username)}`, {
+      headers: { 'X-Ethos-Client': 'ethosguard' },
+    });
+    if (!res.ok) return null;
+    const u = await res.json();
+    if (!u?.profileId) return null;
+    return {
+      displayName: u.displayName || username,
+      score: u.score ?? 0,
+      isValidator: (u.validatorNftCount ?? 0) > 0,
+      isHumanVerified: u.humanVerificationStatus === 'VERIFIED',
+    };
+  } catch {
+    return null;
+  }
+}
+
+function ProfileHoverCard({ username, children }: { username: string; children: React.ReactNode }) {
+  const [show, setShow] = useState(false);
+  const [mini, setMini] = useState<MiniProfile | null>(null);
+  const [fetched, setFetched] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleEnter() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setShow(true);
+    if (!fetched) {
+      setFetched(true);
+      fetchMiniProfile(username).then(setMini);
+    }
+  }
+
+  function handleLeave() {
+    timerRef.current = setTimeout(() => setShow(false), 150);
+  }
+
+  return (
+    <span className="relative" style={{ display: 'inline-block' }} onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+      {children}
+      {show && (
+        <div
+          className="absolute z-50 shadow-2xl shadow-black/70"
+          style={{ bottom: 'calc(100% + 8px)', left: 0, width: '200px', borderRadius: '3px', background: '#3B01D2', padding: '14px 16px' }}
+          onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current); }}
+          onMouseLeave={handleLeave}
+        >
+          {!mini ? (
+            <span style={{ fontSize: '14px', fontFamily: 'var(--font-ibm-plex-mono)', fontWeight: 500, color: '#ffffff' }}>Loading...</span>
+          ) : (
+            <div className="flex flex-col" style={{ gap: '8px' }}>
+              <span style={{ fontSize: '14px', fontFamily: 'var(--font-ibm-plex-mono)', fontWeight: 500, color: '#ffffff' }}>{mini.displayName}</span>
+              <span className="flex items-center gap-1">
+                <EthosLogoIcon score={mini.score} size={13} />
+                <span style={{ fontSize: '14px', fontFamily: 'var(--font-ibm-plex-mono)', fontWeight: 500, color: '#ffffff' }}>{mini.score}</span>
+              </span>
+              <div className="flex flex-col" style={{ gap: '4px' }}>
+                <span className="flex items-center gap-1 uppercase" style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-ibm-plex-mono)', color: mini.isValidator ? '#b5f500' : '#ffffff' }}>
+                  <img src={mini.isValidator ? '/icons/checkmark-lemon.svg' : '/icons/false-white.svg'} width="13" height="13" alt="" />
+                  Validator
+                </span>
+                <span className="flex items-center gap-1 uppercase" style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-ibm-plex-mono)', color: mini.isHumanVerified ? '#b5f500' : '#ffffff' }}>
+                  <img src={mini.isHumanVerified ? '/icons/checkmark-lemon.svg' : '/icons/false-white.svg'} width="13" height="13" alt="" />
+                  Human Verified
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </span>
   );
 }
 
@@ -616,7 +725,7 @@ function TickerBanner({ rawData }: { rawData: TickerRawData | null }) {
             <span
               key={i}
               className="inline-flex items-center"
-              style={{ gap: '6px', padding: '0 12px', flexShrink: 0 }}
+              style={{ gap: '10px', padding: '0 28px', flexShrink: 0 }}
             >
               <span className="hidden sm:inline" style={{ color: '#ffffff', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-ibm-plex-mono)' }}>
                 {item.label}
@@ -661,7 +770,7 @@ function TickerBanner({ rawData }: { rawData: TickerRawData | null }) {
       {/* Period toggle */}
       <div
         className="flex items-center"
-        style={{ flexShrink: 0, background: '#3B01D2', borderRadius: '3px', padding: '0 8px', gap: '2px' }}
+        style={{ flexShrink: 0, background: '#3B01D2', borderRadius: '3px', padding: '0 8px', gap: '6px' }}
       >
         {(['24H', '7D', '30D'] as const).map(p => (
           <button
@@ -672,10 +781,10 @@ function TickerBanner({ rawData }: { rawData: TickerRawData | null }) {
               color: period === p ? '#3B01D2' : '#ffffff',
               border: 'none',
               padding: '4px 7px',
-              fontSize: '11px',
-              fontWeight: 700,
+              fontSize: '14px',
+              fontWeight: 500,
               fontFamily: 'var(--font-ibm-plex-mono)',
-              letterSpacing: '0.05em',
+              letterSpacing: 'normal',
               cursor: 'pointer',
               borderRadius: '2px',
               lineHeight: 1.5,
@@ -700,6 +809,7 @@ export default function ProfilePage() {
 
   const [data, setData] = useState<ProfileData | null>(null);
   const [randomState, setRandomState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [showRandomTooltip, setShowRandomTooltip] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [showAllVouches, setShowAllVouches] = useState(false);
@@ -716,15 +826,16 @@ export default function ProfilePage() {
   async function handleRandom() {
     setRandomState('loading');
     const headers = { 'Content-Type': 'application/json', 'X-Ethos-Client': 'ethosguard' };
+    const randomOffset = Math.floor(Math.random() * 500);
     try {
-      for (const offset of [0, 50]) {
+      for (const offset of [randomOffset, 0]) {
         const res = await fetch(`${BASE}/activities/feed`, {
           method: 'POST', headers,
-          body: JSON.stringify({ filter: ['review'], dayRange: 7, limit: 50, offset }),
+          body: JSON.stringify({ filter: ['review'], dayRange: 30, limit: 50, offset }),
         });
         const d = await res.json();
         const values: Array<{ author?: { username?: string } }> = d.values ?? [];
-        const usernames = values.map(v => v.author?.username).filter(Boolean) as string[];
+        const usernames = [...new Set(values.map(v => v.author?.username).filter(Boolean) as string[])];
         if (usernames.length > 0) {
           const picked = usernames[Math.floor(Math.random() * usernames.length)];
           setRandomState('idle');
@@ -767,37 +878,32 @@ export default function ProfilePage() {
         </a>
 
 
-        <button
-          onClick={randomState === 'loading' ? undefined : randomState === 'error' ? () => setRandomState('idle') : handleRandom}
-          className="hidden sm:flex cursor-pointer items-center"
-          style={{
-            fontFamily: 'var(--font-ibm-plex-mono)',
-            fontSize: '14px',
-            fontWeight: 500,
-            background: 'transparent',
-            border: 'none',
-            outline: 'none',
-            color: '#000000',
-            transition: 'color 150ms ease',
-            gap: '8px',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#3B01D2'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#000000'; }}
+        <div className="hidden sm:block relative" style={{ lineHeight: 0 }}
+          onMouseEnter={() => setShowRandomTooltip(true)}
+          onMouseLeave={() => setShowRandomTooltip(false)}
         >
-          {randomState === 'loading' ? (
-            <>
-              <img src="/icons/synced-white.svg" width="14" height="14" alt="" className="spin" style={{ filter: 'brightness(0)' }} />
-              Scanning...
-            </>
-          ) : randomState === 'error' ? (
-            'Try again'
-          ) : (
-            <>
-              <img src="/icons/random.svg" width="13" height="13" alt="" style={{ filter: 'brightness(0)' }} />
-              Random profile
-            </>
+          <button
+            onClick={randomState === 'loading' ? undefined : randomState === 'error' ? () => setRandomState('idle') : handleRandom}
+            className="cursor-pointer flex items-center justify-center"
+            style={{ background: 'transparent', border: 'none', outline: 'none', padding: '4px' }}
+          >
+            {randomState === 'loading' ? (
+              <img src="/icons/synced-white.svg" width="20" height="20" alt="" className="spin" style={{ filter: 'brightness(0)' }} />
+            ) : (
+              <img src="/icons/random.svg" width="20" height="20" alt="" style={{ filter: 'brightness(0)' }} />
+            )}
+          </button>
+          {showRandomTooltip && (
+            <div
+              className="absolute z-50"
+              style={{ top: '50%', right: 'calc(100% + 8px)', transform: 'translateY(-50%)', background: '#3B01D2', borderRadius: '3px', padding: '16px', whiteSpace: 'nowrap' }}
+            >
+              <span style={{ fontFamily: 'var(--font-ibm-plex-mono)', fontSize: '13px', fontWeight: 500, color: '#ffffff' }}>
+                Explore a random profile on Ethos
+              </span>
+            </div>
           )}
-        </button>
+        </div>
       </header>
 
       {/* ── Progress bar ── */}
@@ -814,23 +920,15 @@ export default function ProfilePage() {
         )}
 
         {/* Profile header */}
-        <div style={{ marginBottom: '8px' }}>
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 sm:justify-between" style={{ marginBottom: '14px' }}>
+        <div style={{ marginBottom: '4px' }}>
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 sm:justify-between" style={{ marginBottom: '8px' }}>
             <h1
               className="text-white font-bold"
               style={{ fontSize: "clamp(1.6rem, 5vw, 2.8rem)" }}
             >
-              {profile?.username || username}
+              {profile?.displayName || username}
             </h1>
-            <a
-              href={`https://app.ethos.network/profile/x/${profile?.username || username}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-bold tracking-widest uppercase whitespace-nowrap link-fluo"
-              style={{ fontSize: '13px' }}
-            >
-              ETHOS PROFIL <span className="link-arrow">➔</span>
-            </a>
+            <EthosLinkButton href={`https://app.ethos.network/profile/x/${profile?.username || username}`} />
           </div>
 
           <div className="flex flex-wrap items-center justify-between" style={{ gap: '12px' }}>
@@ -877,7 +975,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ── Ticker banner ── */}
-        <div className="mt-[-6px] sm:mt-[-12px]">
+        <div style={{ marginTop: '-20px' }}>
           <TickerBanner rawData={tickerRawData} />
         </div>
 

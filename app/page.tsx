@@ -163,30 +163,47 @@ function fmt(n: number | null): string {
   return n === null ? '—' : n.toLocaleString();
 }
 
-function TickerContent({ stats }: { stats: TickerStats }) {
+function TickerItems({ stats }: { stats: TickerStats }) {
   const items = [
-    { title: 'New Reviews', subtitle: 'Written on Ethos', value: fmt(stats.reviews) },
-    { title: 'New Vouches', subtitle: 'Created on Ethos', value: fmt(stats.vouches) },
-    { title: 'New Profiles', subtitle: 'Joined Ethos', value: fmt(stats.profiles) },
-    { title: 'ETH Vouched', subtitle: 'Deposited on Ethos', value: stats.ethVouched ?? '—' },
-    { title: 'New Humans', subtitle: 'Verified on Ethos', value: fmt(stats.verifications) },
+    { label: 'NEW REVIEWS',  icon: 'review-star.svg',    w: 24, h: 23, value: fmt(stats.reviews) },
+    { label: 'NEW VOUCHES',  icon: 'vouch-lemon.svg',    w: 26, h: 26, value: fmt(stats.vouches) },
+    { label: 'NEW PROFILES', icon: 'new-user.svg',       w: 28, h: 23, value: fmt(stats.profiles) },
+    { label: 'ETH VOUCHED',  icon: 'ethereum-lemon.svg', w: 15, h: 26, value: stats.ethVouched ?? '—' },
+    { label: 'NEW HUMANS',   icon: 'humanity.svg',       w: 26, h: 26, value: fmt(stats.verifications) },
   ];
 
-  const content = items.map((item, i) => (
-    <span
-      key={i}
-      className="flex flex-col justify-between shrink-0"
-      style={{ background: '#0E0E0E', borderRadius: '3px', padding: '20px 28px', marginRight: '12px', minWidth: '300px', minHeight: '110px' }}
-    >
-      <span className="flex flex-col gap-1">
-        <span className="text-white font-bold" style={{ fontFamily: 'var(--font-ibm-plex-sans)', fontSize: '20px', lineHeight: 1.1 }}>{item.title}</span>
-        <span className="uppercase" style={{ fontFamily: 'var(--font-ibm-plex-mono)', fontSize: '12px', color: '#ffffff', fontWeight: 500 }}>{item.subtitle}</span>
-      </span>
-      <span className="text-white font-bold text-right" style={{ fontFamily: 'var(--font-ibm-plex-sans)', fontSize: '32px', lineHeight: 1 }}>{item.value}</span>
-    </span>
-  ));
-
-  return <>{content}</>;
+  return (
+    <>
+      {items.map((item, i) => (
+        <span
+          key={i}
+          className="inline-flex flex-col justify-between"
+          style={{
+            width: 'clamp(150px, 30vw, 260px)',
+            height: 'clamp(68px, 12vw, 80px)',
+            padding: 'clamp(10px, 2vw, 12px) clamp(14px, 2.5vw, 20px)',
+            marginRight: '8px',
+            flexShrink: 0,
+            background: '#0E0E0E',
+            borderRadius: '6px',
+          }}
+        >
+          <span className="flex items-center" style={{ gap: '8px' }}>
+            {/* Mobile icon — smaller */}
+            <img src={`/icons/${item.icon}`} width={Math.round(item.w * 0.7)} height={Math.round(item.h * 0.7)} alt="" className="sm:hidden" />
+            {/* Desktop icon */}
+            <img src={`/icons/${item.icon}`} width={item.w} height={item.h} alt="" className="hidden sm:inline" />
+            <span className="hidden sm:inline" style={{ color: '#ffffff', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-ibm-plex-mono)' }}>
+              {item.label}
+            </span>
+          </span>
+          <span className="flex justify-end">
+            <span style={{ fontSize: 'clamp(18px, 4vw, 28px)', fontFamily: 'var(--font-ibm-plex-sans)', fontWeight: 700, color: '#ede8e3', lineHeight: 1 }}>{item.value}</span>
+          </span>
+        </span>
+      ))}
+    </>
+  );
 }
 
 // ── Info icon with modal ──────────────────────────────────────────────────────
@@ -233,6 +250,7 @@ export default function Home() {
   const [period, setPeriod] = useState<Period>('24H');
   const [tickerStats, setTickerStats] = useState<TickerStats>({ profiles: null, verifications: null, reviews: null, vouches: null, ethVouched: null });
   const [tickerLoading, setTickerLoading] = useState(false);
+  const [tickerPaused, setTickerPaused] = useState(false);
   const [randomState, setRandomState] = useState<'idle' | 'loading' | 'error'>('idle');
   const router = useRouter();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -295,15 +313,16 @@ export default function Home() {
   async function handleRandom() {
     setRandomState('loading');
     const headers = { 'Content-Type': 'application/json', 'X-Ethos-Client': 'ethosguard' };
+    const randomOffset = Math.floor(Math.random() * 500);
     try {
-      for (const offset of [0, 50]) {
+      for (const offset of [randomOffset, 0]) {
         const res = await fetch(`${BASE}/activities/feed`, {
           method: 'POST', headers,
-          body: JSON.stringify({ filter: ['review'], dayRange: 7, limit: 50, offset }),
+          body: JSON.stringify({ filter: ['review'], dayRange: 30, limit: 50, offset }),
         });
         const data = await res.json();
         const values: Array<{ author?: { username?: string } }> = data.values ?? [];
-        const usernames = values.map(v => v.author?.username).filter(Boolean) as string[];
+        const usernames = [...new Set(values.map(v => v.author?.username).filter(Boolean) as string[])];
         if (usernames.length > 0) {
           const username = usernames[Math.floor(Math.random() * usernames.length)];
           setRandomState('idle');
@@ -472,7 +491,7 @@ export default function Home() {
       <div>
         {/* Header row */}
         <div className="flex items-center justify-between" style={{ padding: '14px 20px 10px' }}>
-          <span className="flex items-center gap-2 font-bold uppercase" style={{ fontSize: '14px', letterSpacing: '0.12em', color: tickerLoading ? '#b5f500' : '#ffffff' }}>
+          <span className="flex items-center gap-2 uppercase" style={{ fontFamily: 'var(--font-ibm-plex-mono)', fontSize: '14px', fontWeight: 500, color: tickerLoading ? '#b5f500' : '#ffffff' }}>
             Real-time data
             {tickerLoading && (
               <img src="/icons/synced-white.svg" width="14" height="14" alt="" className="spin" style={{ filter: 'brightness(0) saturate(100%) invert(87%) sepia(56%) saturate(800%) hue-rotate(30deg)' }} />
@@ -483,14 +502,17 @@ export default function Home() {
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className="font-bold uppercase cursor-pointer"
+                className="uppercase cursor-pointer"
                 style={{
+                  fontFamily: 'var(--font-ibm-plex-mono)',
                   fontSize: '14px',
-                  letterSpacing: '0.1em',
+                  fontWeight: 500,
+                  letterSpacing: 'normal',
                   padding: '4px 10px',
                   borderRadius: '3px',
                   background: period === p ? '#b5f500' : 'transparent',
-                  color: period === p ? '#000000' : '#555555',
+                  color: period === p ? '#000000' : '#ffffff',
+                  border: 'none',
                   transition: 'all 0.2s ease',
                 }}
               >
@@ -500,13 +522,19 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Ticker */}
-        <div className="overflow-hidden" style={{ padding: '14px 0' }}>
-          <div className="ticker-track flex items-center" style={{ whiteSpace: 'nowrap', fontFamily: 'var(--font-ibm-plex-mono)', fontWeight: 700 }}>
-            <TickerContent stats={tickerStats} />
-            <TickerContent stats={tickerStats} />
-            <TickerContent stats={tickerStats} />
-            <TickerContent stats={tickerStats} />
+        {/* Ticker strip */}
+        <div
+          className="overflow-hidden"
+          style={{ padding: '0 0 24px' }}
+        >
+          <div
+            className="ticker-track inline-flex items-center"
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            <TickerItems stats={tickerStats} />
+            <TickerItems stats={tickerStats} />
+            <TickerItems stats={tickerStats} />
+            <TickerItems stats={tickerStats} />
           </div>
         </div>
       </div>
