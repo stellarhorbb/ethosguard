@@ -348,7 +348,7 @@ async function fetchScoreHistory(
 async function fetchXpTimeline(
   pid: number,
   since: string,
-): Promise<Array<{ timestamp: number; xpEarned: number; cumulativeXp: number }>> {
+): Promise<Array<{ timestamp: number; xpEarned: number }>> {
   try {
     let seasonId = 2;
     try {
