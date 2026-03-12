@@ -177,28 +177,27 @@ function TickerItems({ stats }: { stats: TickerStats }) {
       {items.map((item, i) => (
         <span
           key={i}
-          className="inline-flex flex-col justify-between"
+          className="inline-flex items-start justify-between"
           style={{
-            width: 'clamp(150px, 30vw, 260px)',
-            height: 'clamp(68px, 12vw, 80px)',
-            padding: 'clamp(10px, 2vw, 12px) clamp(14px, 2.5vw, 20px)',
+            width: 'clamp(200px, 35vw, 320px)',
+            height: 'clamp(64px, 10vw, 76px)',
+            padding: 'clamp(12px, 2vw, 16px) clamp(16px, 2.5vw, 24px)',
             marginRight: '8px',
             flexShrink: 0,
             background: '#0E0E0E',
             borderRadius: '6px',
           }}
         >
-          <span className="flex items-center" style={{ gap: '8px' }}>
-            {/* Mobile icon — smaller */}
-            <img src={`/icons/${item.icon}`} width={Math.round(item.w * 0.7)} height={Math.round(item.h * 0.7)} alt="" className="sm:hidden" />
-            {/* Desktop icon */}
-            <img src={`/icons/${item.icon}`} width={item.w} height={item.h} alt="" className="hidden sm:inline" />
-            <span className="hidden sm:inline" style={{ color: '#ffffff', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-ibm-plex-mono)' }}>
+          {/* Left: label top, icon bottom */}
+          <span className="inline-flex flex-col justify-between" style={{ height: '100%' }}>
+            <span style={{ color: '#ffffff', fontSize: 'clamp(11px, 1.5vw, 13px)', fontWeight: 500, fontFamily: 'var(--font-ibm-plex-mono)', letterSpacing: '0.05em', lineHeight: 1 }}>
               {item.label}
             </span>
+            <img src={`/icons/${item.icon}`} width={item.w} height={item.h} alt="" />
           </span>
-          <span className="flex justify-end">
-            <span style={{ fontSize: 'clamp(18px, 4vw, 28px)', fontFamily: 'var(--font-ibm-plex-sans)', fontWeight: 700, color: '#ede8e3', lineHeight: 1 }}>{item.value}</span>
+          {/* Right: large number, top-aligned */}
+          <span style={{ fontSize: 'clamp(18px, 4vw, 28px)', fontFamily: 'var(--font-ibm-plex-sans)', fontWeight: 700, color: '#ede8e3', lineHeight: 1 }}>
+            {item.value}
           </span>
         </span>
       ))}
